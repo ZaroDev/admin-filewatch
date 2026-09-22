@@ -20,6 +20,7 @@ from email_notifier import EmailNotifier
 from alert_manager import AlertManager
 from logger import Logger
 from web_dashboard import WebDashboard
+from space_analyzer import SpaceAnalyzer
 
 
 class DiskUsageMonitorApp:
@@ -63,6 +64,12 @@ class DiskUsageMonitorApp:
                 self.logger
             )
 
+            # Initialize space analyzer
+            self.space_analyzer = SpaceAnalyzer(
+                self.config_manager.get_space_analyzer_config(),
+                self.logger
+            )
+
             # Initialize web dashboard (if enabled)
             web_config = self.config_manager.get_web_dashboard_config()
             if web_config.get('enabled', False):
@@ -102,12 +109,57 @@ class DiskUsageMonitorApp:
             self.monitor_thread.join(timeout=5)
         self.logger.info("Disk monitoring stopped")
 
+    def _run_space_analysis(self):
+        """Run space analysis on all monitored paths."""
+        try:
+            self.logger.info("Starting space analysis...")
+            disk_config = self.config_manager.get_disk_monitor_config()
+            paths_to_monitor = disk_config.get('paths_to_monitor', ['C:'])
+
+            all_results = {}
+
+            for path in paths_to_monitor:
+                self.logger.info(f"Analyzing path: {path}")
+                result = self.space_analyzer.analyze_path(path)
+                all_results[path] = result
+
+                # Log summary
+                large_files_count = result.get('total_large_files', 0)
+                large_folders_count = result.get('total_large_folders', 0)
+                self.logger.info(
+                    f"Space analysis complete for {path}: "
+                    f"{large_files_count} large files, {large_folders_count} large folders"
+                )
+
+                # Log details of top 5 largest files
+                large_files = result.get('large_files', [])
+                if large_files:
+                    self.logger.info(f"Top 5 largest files in {path}:")
+                    for i, file_info in enumerate(large_files[:5]):
+                        self.logger.info(
+                            f"  {i+1}. {file_info['path']} ({file_info['size_human']})"
+                        )
+
+            # Update web dashboard with analysis results (if available)
+            if self.web_dashboard and paths_to_monitor:
+                # Store results for the first path in the web dashboard
+                first_path = paths_to_monitor[0]
+                first_path_result = all_results.get(first_path, {})
+                self.web_dashboard.update_analysis_info(first_path_result)
+
+        except Exception as e:
+            self.logger.error(f"Error running space analysis: {e}")
+
     def _monitoring_loop(self):
         """Main monitoring loop."""
         check_interval = self.config_manager.get_disk_monitor_config().get('check_interval_seconds', 300)
+        space_analysis_interval = 3600  # Run space analysis every hour (3600 seconds)
+        last_space_analysis = 0
 
         while self.running:
             try:
+                current_time = time.time()
+
                 # Check disk usage for all configured paths
                 disk_info = self.disk_monitor.check_all_paths()
 
@@ -118,8 +170,13 @@ class DiskUsageMonitorApp:
                 # Check thresholds and send alerts if needed
                 self.alert_manager.check_thresholds(disk_info)
 
+                # Run space analysis periodically
+                if current_time - last_space_analysis >= space_analysis_interval:
+                    self._run_space_analysis()
+                    last_space_analysis = current_time
+
                 # Wait for next check
-                time.sleep(check_interval)
+                time.sleep(min(check_interval, 60))  # Wait shorter time to be more responsive
 
             except Exception as e:
                 self.logger.error(f"Error in monitoring loop: {e}")
