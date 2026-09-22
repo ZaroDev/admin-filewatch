@@ -1,0 +1,4 @@
+# Disk Usage Monitor Application Requirements
+# Core functionality uses only Python standard library
+# Uncomment the following line if you want enhanced disk monitoring with psutil
+# psutil>=5.0.0

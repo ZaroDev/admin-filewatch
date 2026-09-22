@@ -1,0 +1,39 @@
+{
+  "disk_monitor": {
+    "paths_to_monitor": ["C:"],
+    "check_interval_seconds": 300,
+    "threshold_warning_percent": 80,
+    "threshold_critical_percent": 90,
+    "threshold_emergency_percent": 95
+  },
+  "email_notifier": {
+    "enabled": true,
+    "smtp_server": "localhost",
+    "smtp_port": 587,
+    "smtp_username": "",
+    "smtp_password": "",
+    "smtp_use_tls": true,
+    "from_address": "",
+    "to_addresses": ["admin@example.com"],
+    "cooldown_minutes": 60
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "logs/disk_monitor.log",
+    "max_size_mb": 10,
+    "backup_count": 5,
+    "console_output": true
+  },
+  "web_dashboard": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 5000,
+    "debug": false
+  },
+  "space_analyzer": {
+    "scan_depth": 3,
+    "min_file_size_mb": 10,
+    "exclude_paths": ["$Recycle.Bin", "System Volume Information", "Windows\\Temp"],
+    "exclude_file_patterns": ["*.tmp", "*.log"]
+  }
+}
